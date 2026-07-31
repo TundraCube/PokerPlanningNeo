@@ -266,7 +266,9 @@ if (runAll || flags.commit) {
           // Append to today's entry
           const existing = changelog[todayIndex];
           for (const feat of features) {
-            if (!existing.features.includes(feat)) {
+            // Deduplicate exact matches and case-insensitive/prefix matches
+            const exists = existing.features.some((f: string) => f.toLowerCase().trim() === feat.toLowerCase().trim());
+            if (!exists) {
               existing.features.push(feat);
             }
           }
@@ -274,7 +276,8 @@ if (runAll || flags.commit) {
             existing.fixes = [];
           }
           for (const fix of fixes) {
-            if (!existing.fixes.includes(fix)) {
+            const exists = existing.fixes.some((f: string) => f.toLowerCase().trim() === fix.toLowerCase().trim());
+            if (!exists) {
               existing.fixes.push(fix);
             }
           }
