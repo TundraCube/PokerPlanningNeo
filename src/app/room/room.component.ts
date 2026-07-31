@@ -43,8 +43,12 @@ import { SessionEndedComponent } from '../components/session-ended/session-ended
                             [isHost]="isHost()"
                             [roomName]="currentRoomName()"
                             [title]="areCardsRevealed() ? 'Revealed Results' : ''"
+                            [isPersistent]="isPersistent()"
+                            [jiraCustomDomain]="jiraCustomDomain()"
                             (roomNameChange)="onRoomNameChange($event)"
                             (nameBlur)="saveRoomName()"
+                            (persistentChange)="onPersistentChange($event)"
+                            (jiraDomainChange)="onJiraDomainChange($event)"
                             (endSession)="leaveRoom()" 
                             (copyLink)="copyInviteLink()">
             </neo-room-header>
@@ -70,6 +74,7 @@ import { SessionEndedComponent } from '../components/session-ended/session-ended
                   [tasks]="currentRoomTasks()"
                   [currentStory]="currentStory()"
                   [currentTaskId]="currentTaskId()"
+                  [jiraCustomDomain]="jiraCustomDomain()"
                   (selectTask)="selectTaskForEstimation($event)">
                 </neo-task-list>
               </div>
@@ -132,6 +137,10 @@ export class RoomComponent implements OnInit, OnDestroy {
   currentRoomTasks = computed(() => this.gameService.currentRoomData()?.tasks || []);
   /** The task ID that is currently active for estimation (stored in Firestore) */
   currentTaskId = computed(() => this.gameService.currentRoomData()?.currentTaskId || null);
+  isPersistent = computed(() => this.gameService.currentRoomData()?.isPersistent || false);
+  jiraCustomDomain = computed(() => {
+    return this.gameService.currentRoomData()?.jiraCustomDomain || localStorage.getItem('POKER_JIRA_CUSTOM_DOMAIN') || '';
+  });
   hasVotes = computed(() => {
     return this.players().some(p => p.vote !== undefined && p.vote !== null);
   });
@@ -493,6 +502,33 @@ export class RoomComponent implements OnInit, OnDestroy {
   }
 
   // --- Header & Story Editing Methods ---
+
+  async onPersistentChange(isPersistent: boolean) {
+    if (!this.roomId || !this.isHost()) return;
+    try {
+      await this.gameService.updateRoomPersistence(this.roomId, isPersistent);
+      this.toastService.success(isPersistent ? 'Room set to persistent (will not expire)' : 'Room set to standard longevity');
+    } catch (e) {
+      console.error('Failed to update room persistence', e);
+      this.toastService.error('Failed to update room persistence.');
+    }
+  }
+
+  async onJiraDomainChange(domain: string) {
+    if (!this.roomId || !this.isHost()) return;
+    try {
+      if (domain) {
+        localStorage.setItem('POKER_JIRA_CUSTOM_DOMAIN', domain);
+      } else {
+        localStorage.removeItem('POKER_JIRA_CUSTOM_DOMAIN');
+      }
+      await this.gameService.updateRoomJiraCustomDomain(this.roomId, domain);
+      this.toastService.success('Jira custom domain updated!');
+    } catch (e) {
+      console.error('Failed to update Jira custom domain', e);
+      this.toastService.error('Failed to update Jira custom domain.');
+    }
+  }
 
   onRoomNameChange(newName: string) {
     this.currentRoomName.set(newName);

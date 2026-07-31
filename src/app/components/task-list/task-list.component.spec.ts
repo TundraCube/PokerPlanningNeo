@@ -48,3 +48,32 @@ describe('TaskListComponent - normalizeJiraUrl', () => {
     expect(normalizeJiraUrl('')).toBe('');
   });
 });
+
+describe('TaskListComponent - getJiraLink', () => {
+  it('should replace domain.atlassian.net with custom domain', () => {
+    const context = {
+      jiraCustomDomain: () => 'my-company.atlassian.net'
+    };
+    const getJiraLink = TaskListComponent.prototype.getJiraLink.bind(context as any);
+    const link = getJiraLink({ jiraUrl: 'https://domain.atlassian.net/browse/PROJ-123' });
+    expect(link).toBe('https://my-company.atlassian.net/browse/PROJ-123');
+  });
+
+  it('should return original URL if no custom domain is set', () => {
+    const context = {
+      jiraCustomDomain: () => ''
+    };
+    const getJiraLink = TaskListComponent.prototype.getJiraLink.bind(context as any);
+    const link = getJiraLink({ jiraUrl: 'https://domain.atlassian.net/browse/PROJ-123' });
+    expect(link).toBe('https://domain.atlassian.net/browse/PROJ-123');
+  });
+
+  it('should return empty string if task has no jiraUrl', () => {
+    const context = {
+      jiraCustomDomain: () => 'my-company.atlassian.net'
+    };
+    const getJiraLink = TaskListComponent.prototype.getJiraLink.bind(context as any);
+    const link = getJiraLink({});
+    expect(link).toBe('');
+  });
+});

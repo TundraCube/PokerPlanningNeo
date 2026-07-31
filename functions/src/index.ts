@@ -36,11 +36,18 @@ export const cleanZombieRooms = onSchedule("every 24 hours", async (event) => {
     let deleteCount = 0;
 
     snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.isPersistent === true) {
+            console.log(`Skipping persistent room ${doc.id} from zombie cleanup.`);
+            return;
+        }
         batch.delete(doc.ref);
         deleteCount++;
     });
 
-    await batch.commit();
+    if (deleteCount > 0) {
+        await batch.commit();
+    }
     console.log(`Deleted ${deleteCount} zombie rooms.`);
 });
 
@@ -63,11 +70,18 @@ export const cleanZombieRoomsManual = onRequest(async (req, res) => {
     let deleteCount = 0;
 
     snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.isPersistent === true) {
+            console.log(`Skipping persistent room ${doc.id} from zombie cleanup.`);
+            return;
+        }
         batch.delete(doc.ref);
         deleteCount++;
     });
 
-    await batch.commit();
+    if (deleteCount > 0) {
+        await batch.commit();
+    }
     res.send(`Deleted ${deleteCount} zombie rooms.`);
 });
 
@@ -111,12 +125,14 @@ export const cleanEmptyRooms = onDocumentUpdated("rooms/{roomId}", async (event)
                 !playersToRemove.some((pr: any) => pr.id === cp.id)
             );
 
-            // If checking players removals results in empty room, it will trigger this function again recursively (or we can handle it here)
-            // But let's just update for now. 
-            // If updatedPlayers is empty, the NEXT trigger will see empty array and delete the room.
             if (updatedPlayers.length === 0) {
-                console.log("Room became empty after removing disconnected users. Deleting room.");
-                await change.after.ref.delete();
+                if (currentData?.isPersistent === true && currentData?.status !== 'ended') {
+                    console.log(`Room ${roomId} became empty after removing disconnected users but is persistent. Keeping room.`);
+                    await change.after.ref.update({ players: [] });
+                } else {
+                    console.log("Room became empty after removing disconnected users. Deleting room.");
+                    await change.after.ref.delete();
+                }
             } else {
                 await change.after.ref.update({ players: updatedPlayers });
             }
@@ -126,8 +142,12 @@ export const cleanEmptyRooms = onDocumentUpdated("rooms/{roomId}", async (event)
 
     // Existing "Empty Room" logic (fallback if room is truly empty [])
     if (players.length === 0) {
-        console.log(`Room ${roomId} is empty. Deleting...`);
-        await change.after.ref.delete();
+        if (newData.isPersistent === true && newData.status !== 'ended') {
+            console.log(`Room ${roomId} is empty but is persistent. Skipping deletion.`);
+        } else {
+            console.log(`Room ${roomId} is empty. Deleting...`);
+            await change.after.ref.delete();
+        }
     }
 });
 

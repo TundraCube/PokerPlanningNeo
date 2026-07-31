@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TimerComponent } from '../timer/timer.component';
 
@@ -30,11 +30,55 @@ import { TimerComponent } from '../timer/timer.component';
           <neo-timer></neo-timer>
         </div>
       </div>
-      @if (isHost()) {
-        <button class="btn-end-session" (click)="onEndSession()">End Session</button>
-      } @else {
-        <button class="btn-end-session" (click)="onEndSession()">Leave Room</button>
-      }
+      <div class="header-actions">
+        @if (isHost()) {
+          <div class="settings-wrapper">
+            <button class="btn-settings" (click)="toggleSettings()" [class.active]="showSettings()" title="Room Settings">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="settings-icon">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Settings</span>
+            </button>
+
+            @if (showSettings()) {
+              <div class="settings-popover glass-panel">
+                <div class="popover-header">
+                  <h4>Room Settings</h4>
+                  <button class="btn-close-popover" (click)="showSettings.set(false)">✕</button>
+                </div>
+
+                <div class="setting-item">
+                  <label class="setting-checkbox-label">
+                    <input type="checkbox" 
+                           [ngModel]="isPersistent()" 
+                           (ngModelChange)="onPersistentToggle($event)">
+                    <span class="checkbox-title">Keep Room Active</span>
+                  </label>
+                  <p class="setting-desc">Preserves this room URL so it never expires when empty.</p>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-item">
+                  <label class="setting-label">Jira Custom Domain</label>
+                  <input type="text" 
+                         [ngModel]="localJiraDomain()" 
+                         (ngModelChange)="localJiraDomain.set($event)"
+                         (blur)="onJiraDomainBlur()"
+                         (keyup.enter)="onJiraDomainBlur()"
+                         placeholder="e.g. company.atlassian.net"
+                         class="setting-input">
+                  <p class="setting-desc">Task keys like <code>PROJ-123</code> will link to this domain.</p>
+                </div>
+              </div>
+            }
+          </div>
+          <button class="btn-end-session" (click)="onEndSession()">End Session</button>
+        } @else {
+          <button class="btn-end-session" (click)="onEndSession()">Leave Room</button>
+        }
+      </div>
     </header>
   `,
     styleUrl: './room-header.component.css'
@@ -44,10 +88,36 @@ export class RoomHeaderComponent {
   isHost = input<boolean>(false);
   roomName = input<string>(''); // Received from parent
   title = input<string>(''); // Override title
+  isPersistent = input<boolean>(false);
+  jiraCustomDomain = input<string>('');
 
   roomNameChange = output<string>(); // Emit changes to parent
   endSession = output<void>();
   copyLink = output<void>();
+  nameBlur = output<void>();
+  persistentChange = output<boolean>();
+  jiraDomainChange = output<string>();
+
+  showSettings = signal<boolean>(false);
+  localJiraDomain = signal<string>('');
+
+  constructor() {
+    effect(() => {
+      this.localJiraDomain.set(this.jiraCustomDomain());
+    });
+  }
+
+  toggleSettings() {
+    this.showSettings.set(!this.showSettings());
+  }
+
+  onPersistentToggle(newValue: boolean) {
+    this.persistentChange.emit(newValue);
+  }
+
+  onJiraDomainBlur() {
+    this.jiraDomainChange.emit(this.localJiraDomain().trim());
+  }
 
   onEndSession() {
     this.endSession.emit();
@@ -58,24 +128,8 @@ export class RoomHeaderComponent {
   }
 
   onNameChange(newName: string) {
-    // Just emit, parent handles debouncing or immediate save if desired
-    // But for Firestore partial updates, we usually save on blur to avoid too many writes
-    // We can emit immediate updates for local UI responsiveness if parent handles it
-    // Let's assume parent updates local signal immediately, and saves on debounce or we handle save signal separate
-    // Simpler approach: update local UI via parent signal, save on blur.
-    // So we emit the change so parent syncs local state.
     this.roomNameChange.emit(newName);
   }
-
-  // Optional: distinct event for "done editing" if we want to save then
-  // For now, let's just rely on the change event or add a specific "save" output if needed.
-  // Actually, standard pattern: Parent holds state. We emit changes. Parent decides when to save.
-  // But to avoid writing to DB on every keystroke, we might need a separate "save" event or handle it in parent.
-  // Let's stick to emitting changes, but maybe the parent should debounce?
-  // Use case: Real-time typing vs explicit save.
-  // Let's emit a 'nameBlur' event for the save trigger.
-
-  nameBlur = output<void>();
 
   onNameBlur() {
     this.nameBlur.emit();

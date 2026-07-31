@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    "version": "2026.07.31",
+    "date": "2026-07-31",
+    "features": [
+      "Keep Room Active: option to make rooms persistent so bookmarked URLs never expire",
+      "Jira Custom Domain: define your company Jira domain so task keys link directly to your issues without OAuth",
+      "Persistent rooms and custom jira domain"
+    ],
+    "fixes": []
+  },
+  {
     "version": "2026.05.28",
     "date": "2026-05-28",
     "features": [

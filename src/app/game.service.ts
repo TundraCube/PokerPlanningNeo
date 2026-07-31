@@ -40,6 +40,8 @@ export interface Room {
     status?: 'active' | 'ended';
     tasks?: Task[];
     timerEndsAt?: number | null;
+    isPersistent?: boolean;
+    jiraCustomDomain?: string;
 }
 
 const STORAGE_KEY = 'POKER_USER_NAME';
@@ -136,6 +138,7 @@ export class GameService {
             };
 
             const now = Date.now();
+            const cachedDomain = localStorage.getItem('POKER_JIRA_CUSTOM_DOMAIN');
             const newRoom: Room = {
                 hostId: user.uid,
                 areCardsRevealed: false,
@@ -144,7 +147,8 @@ export class GameService {
                 currentStory: '',
                 status: 'active',
                 createdAt: now,
-                lastActiveAt: now
+                lastActiveAt: now,
+                ...(cachedDomain ? { jiraCustomDomain: cachedDomain } : {})
             };
 
             console.log('Setting document in Firestore...');
@@ -308,6 +312,22 @@ export class GameService {
         const roomRef = this.runInContext(() => doc(this.firestore, 'rooms', roomId));
         await this.runInContext(() => updateDoc(roomRef, {
             roomName: name,
+            lastActiveAt: Date.now()
+        }));
+    }
+
+    async updateRoomPersistence(roomId: string, isPersistent: boolean) {
+        const roomRef = this.runInContext(() => doc(this.firestore, 'rooms', roomId));
+        await this.runInContext(() => updateDoc(roomRef, {
+            isPersistent,
+            lastActiveAt: Date.now()
+        }));
+    }
+
+    async updateRoomJiraCustomDomain(roomId: string, domain: string) {
+        const roomRef = this.runInContext(() => doc(this.firestore, 'rooms', roomId));
+        await this.runInContext(() => updateDoc(roomRef, {
+            jiraCustomDomain: domain.trim(),
             lastActiveAt: Date.now()
         }));
     }

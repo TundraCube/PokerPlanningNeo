@@ -88,7 +88,7 @@ import { ToastService } from '../../services/toast.service';
                   }
                   <td class="task-desc">
                     <div class="jira-task-badge-wrapper">
-                         <a [href]="lTask.jiraUrl" target="_blank" class="jira-key-badge" (click)="$event.stopPropagation()">
+                         <a [href]="getJiraLink(lTask)" target="_blank" class="jira-key-badge" (click)="$event.stopPropagation()">
                              {{ lTask.jiraKey }}
                          </a>
                          <span class="jira-summary skeleton-text"></span>
@@ -126,7 +126,7 @@ import { ToastService } from '../../services/toast.service';
                   <td class="task-desc">
                     @if (task.jiraKey) {
                         <div class="jira-task-badge-wrapper">
-                            <a [href]="task.jiraUrl" target="_blank" class="jira-key-badge" (click)="$event.stopPropagation()">
+                            <a [href]="getJiraLink(task)" target="_blank" class="jira-key-badge" (click)="$event.stopPropagation()">
                                 {{ task.jiraKey }}
                             </a>
                             <span class="jira-summary" [class.skeleton-text]="refreshingTasks().has(task.id)" [title]="task.jiraSummary">
@@ -203,6 +203,7 @@ export class TaskListComponent implements OnInit {
   currentStory = input<string>('');
   /** ID of the task currently being estimated — preferred over description matching */
   currentTaskId = input<string | null>(null);
+  jiraCustomDomain = input<string>('');
 
   selectTask = output<Task | null>();
 
@@ -288,6 +289,15 @@ export class TaskListComponent implements OnInit {
     return !!id && task.id === id;
   }
 
+  getJiraLink(task: { jiraUrl?: string }): string {
+    if (!task || !task.jiraUrl) return '';
+    const customDomain = this.jiraCustomDomain() ? this.jiraCustomDomain().trim() : '';
+    if (customDomain && task.jiraUrl.includes('domain.atlassian.net')) {
+      return task.jiraUrl.replace('domain.atlassian.net', customDomain);
+    }
+    return task.jiraUrl;
+  }
+
   getParsedDescription(text: string): SafeHtml {
     if (!text) return '';
     const escaped = text
@@ -297,7 +307,14 @@ export class TaskListComponent implements OnInit {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parsed = escaped.replace(urlRegex, (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="jira-link">${url}</a>`);
+    const parsed = escaped.replace(urlRegex, (url) => {
+      let targetUrl = url;
+      const customDomain = this.jiraCustomDomain() ? this.jiraCustomDomain().trim() : '';
+      if (customDomain && url.includes('domain.atlassian.net')) {
+        targetUrl = url.replace('domain.atlassian.net', customDomain);
+      }
+      return `<a href="${targetUrl}" target="_blank" rel="noopener noreferrer" class="jira-link">${targetUrl}</a>`;
+    });
     return this.sanitizer.bypassSecurityTrustHtml(parsed);
   }
 
@@ -355,7 +372,9 @@ export class TaskListComponent implements OnInit {
         }
       }
 
-      const defaultDomain = desc.includes('.atlassian.net') ? desc.match(/https?:\/\/([^/]+)/)?.[1] || 'domain.atlassian.net' : 'domain.atlassian.net';
+      const customDomain = this.jiraCustomDomain() ? this.jiraCustomDomain().trim() : '';
+      const fallbackDomain = customDomain || 'domain.atlassian.net';
+      const defaultDomain = desc.includes('.atlassian.net') ? desc.match(/https?:\/\/([^/]+)/)?.[1] || fallbackDomain : fallbackDomain;
       const jiraUrl = this.normalizeJiraUrl(desc.startsWith('http') ? desc : `https://${this.jiraSites().find(s => s.id === cloudId)?.url || defaultDomain}/browse/${jiraKey}`);
 
       jiraMeta = {
