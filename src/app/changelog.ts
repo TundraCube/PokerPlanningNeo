@@ -11,8 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-07-31",
     "features": [
       "Keep Room Active: option to make rooms persistent so bookmarked URLs never expire",
-      "Jira Custom Domain: define your company Jira domain so task keys link directly to your issues without OAuth",
-      "Persistent rooms and custom jira domain"
+      "Jira Custom Domain: define your company Jira domain so task keys link directly to your issues without OAuth"
     ],
     "fixes": []
   },
