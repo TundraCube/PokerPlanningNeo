@@ -1,6 +1,6 @@
 ---
 name: ship
-description: "Commit worktree changes, sync with main, run tests, merge and push to main, remove the worktree, release ports in active_ports.json, and monitor the GitHub Actions CI deployment. Triggers on /ship."
+description: "Automates shipping, deploying to main, rollout, release versioning, updating src/app/changelog.ts, running unit/e2e tests, merging git worktrees, cleaning up active ports, and monitoring GitHub Actions CI. Trigger automatically when the user asks to deploy, rollout, release, ship, or merge changes to production, or on /ship."
 ---
 
 # Ship Feature Skill (/ship)
